@@ -16,8 +16,8 @@ export default defineConfig(({ mode }) => {
           registerType: 'autoUpdate',
           includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
           manifest: {
-            name: 'FinanceFlow',
-            short_name: 'FinanceFlow',
+            name: 'Mis Gastos App',
+            short_name: 'Mis Gastos',
             description: 'Aplicación de gestión de gastos personales',
             theme_color: '#38e07b',
             background_color: '#122017',

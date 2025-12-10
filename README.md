@@ -1,4 +1,4 @@
-# FinanceFlow 💰
+# Mis Gastos App 💰
 
 Aplicación web de gestión financiera personal que te permite registrar, categorizar y analizar tus gastos de manera sencilla e intuitiva.
 
@@ -144,7 +144,7 @@ La aplicación estará disponible en `http://localhost:3000`
 ## 🏗️ Estructura del Proyecto
 
 ```
-financeflow/
+mis-gastos-app/
 ├── components/          # Componentes reutilizables
 │   ├── BottomNav.tsx   # Navegación inferior
 │   ├── Layout.tsx      # Layout principal
