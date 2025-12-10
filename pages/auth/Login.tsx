@@ -133,6 +133,11 @@ const Login: React.FC = () => {
             ¿No tienes una cuenta? <Link to="/signup" className="font-bold text-primary underline">Crear cuenta</Link>
         </p>
       </div>
+      <div className="pb-4 text-center">
+        <p className="text-slate-400 dark:text-slate-500 text-xs font-normal">
+          v{import.meta.env.VITE_APP_VERSION || '1.0.0'}
+        </p>
+      </div>
     </div>
   );
 };
