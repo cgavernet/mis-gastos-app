@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { db, collection, addDoc, serverTimestamp, query, where, onSnapshot, getDocs } from '../firebase';
+import { db, collection, addDoc, serverTimestamp, query, where, onSnapshot, getDocs, orderBy, limit } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { Category, CreditCard } from '../types';
@@ -29,6 +29,11 @@ const AddExpense: React.FC = () => {
   const [showCardModal, setShowCardModal] = useState(false);
   const [showPaymentDatePicker, setShowPaymentDatePicker] = useState(false);
   
+  // Defaults “más usados recientemente” (una sola vez)
+  const [recommendedCategoryName, setRecommendedCategoryName] = useState<string | null>(null);
+  const [recommendedSubcategory, setRecommendedSubcategory] = useState<string | null>(null);
+  const [didApplyRecommendedDefaults, setDidApplyRecommendedDefaults] = useState(false);
+  
   // Load categories from Firebase
   useEffect(() => {
     if (!currentUser) return;
@@ -46,8 +51,12 @@ const AddExpense: React.FC = () => {
       
       setCategories(cats);
       if (cats.length > 0) {
+        // Mantener selección si existe; si no, aplicar recomendación; si no, caer al primero.
         if (!selectedCategory || !cats.find(c => c.id === selectedCategory?.id)) {
-          setSelectedCategory(cats[0]);
+          const recommended = recommendedCategoryName
+            ? cats.find((c) => c.name === recommendedCategoryName) ?? null
+            : null;
+          setSelectedCategory(recommended ?? cats[0]);
         }
       } else {
         setSelectedCategory(null);
@@ -56,11 +65,114 @@ const AddExpense: React.FC = () => {
     
     return () => unsubscribe();
   }, [currentUser]);
+
+  // Calcular categoría/subcategoría más usadas recientemente (basado en transacciones)
+  useEffect(() => {
+    if (!currentUser) return;
+    let cancelled = false;
+
+    const computeRecommendedDefaults = async () => {
+      try {
+        const q = query(
+          collection(db, 'transactions'),
+          where('userId', '==', currentUser.uid),
+          orderBy('timestamp', 'desc'),
+          limit(20)
+        );
+        const snap: any = await getDocs(q);
+        if (cancelled) return;
+
+        const docs = snap.docs.map((d: any) => d.data());
+
+        // Solo gastos (si no hay type, lo tratamos como gasto por compatibilidad)
+        const expenses = docs.filter((t: any) => !t.type || t.type === 'expense');
+
+        const catStats = new Map<string, { count: number; lastIndex: number }>();
+        const subStats = new Map<string, Map<string, { count: number; lastIndex: number }>>();
+
+        expenses.forEach((t: any, idx: number) => {
+          const cat = t.category;
+          if (typeof cat !== 'string' || !cat) return;
+
+          const prev = catStats.get(cat);
+          catStats.set(cat, {
+            count: (prev?.count ?? 0) + 1,
+            lastIndex: prev ? Math.min(prev.lastIndex, idx) : idx, // idx menor = más reciente (porque viene desc)
+          });
+
+          const sub = t.subcategory;
+          if (typeof sub === 'string' && sub) {
+            if (!subStats.has(cat)) subStats.set(cat, new Map());
+            const m = subStats.get(cat)!;
+            const sPrev = m.get(sub);
+            m.set(sub, {
+              count: (sPrev?.count ?? 0) + 1,
+              lastIndex: sPrev ? Math.min(sPrev.lastIndex, idx) : idx,
+            });
+          }
+        });
+
+        const pickBest = (m: Map<string, { count: number; lastIndex: number }>) => {
+          let bestKey: string | null = null;
+          let bestCount = -1;
+          let bestLastIndex = Number.POSITIVE_INFINITY;
+          for (const [key, v] of m.entries()) {
+            if (v.count > bestCount || (v.count === bestCount && v.lastIndex < bestLastIndex)) {
+              bestKey = key;
+              bestCount = v.count;
+              bestLastIndex = v.lastIndex;
+            }
+          }
+          return bestKey;
+        };
+
+        const bestCategory = pickBest(catStats);
+        setRecommendedCategoryName(bestCategory);
+
+        if (bestCategory && subStats.has(bestCategory)) {
+          const bestSub = pickBest(subStats.get(bestCategory)!);
+          setRecommendedSubcategory(bestSub);
+        } else {
+          setRecommendedSubcategory(null);
+        }
+      } catch (error) {
+        console.error('Error computing recommended category defaults:', error);
+        if (!cancelled) {
+          setRecommendedCategoryName(null);
+          setRecommendedSubcategory(null);
+        }
+      }
+    };
+
+    computeRecommendedDefaults();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser]);
+
+  // Aplicar recomendación una sola vez cuando ya tengo categorías cargadas
+  useEffect(() => {
+    if (didApplyRecommendedDefaults) return;
+    if (!categories.length) return;
+    if (!recommendedCategoryName) return;
+
+    const recommended = categories.find((c) => c.name === recommendedCategoryName);
+    if (!recommended) return;
+
+    setSelectedCategory(recommended);
+    if (recommendedSubcategory && recommended.subcategories?.includes(recommendedSubcategory)) {
+      setSelectedSubcategory(recommendedSubcategory);
+    }
+    setDidApplyRecommendedDefaults(true);
+  }, [categories, recommendedCategoryName, recommendedSubcategory, didApplyRecommendedDefaults]);
   
   // Set default subcategory when category changes
   useEffect(() => {
     if (selectedCategory && selectedCategory.subcategories && selectedCategory.subcategories.length > 0) {
-      setSelectedSubcategory(selectedCategory.subcategories[0]);
+      // No pisar si ya hay una subcategoría válida (ej: recomendación)
+      if (!selectedSubcategory || !selectedCategory.subcategories.includes(selectedSubcategory)) {
+        setSelectedSubcategory(selectedCategory.subcategories[0]);
+      }
     } else {
       setSelectedSubcategory('');
     }
