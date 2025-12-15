@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { useNavigate } from 'react-router-dom';
-import { db, collection, query, where, orderBy, onSnapshot, limit, doc } from '../firebase';
+import { db, collection, query, where, orderBy, onSnapshot, limit, doc, getDocs, startAfter } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { Transaction, Category } from '../types';
 
@@ -14,6 +14,24 @@ const Dashboard: React.FC = () => {
   const [totalAmount, setTotalAmount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [photoURL, setPhotoURL] = useState<string | null>(null);
+
+  const formatDateDDMMYYYY = (isoDate: string) => {
+    // isoDate esperado: "YYYY-MM-DD"
+    const d = new Date(`${isoDate}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return isoDate;
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  };
+
+  // Paginación del listado de movimientos (ordenado por fecha del gasto: `date`)
+  const PAGE_SIZE = 5;
+  const [listTransactions, setListTransactions] = useState<Transaction[]>([]);
+  const [listLoadingInitial, setListLoadingInitial] = useState(true);
+  const [listLoadingMore, setListLoadingMore] = useState(false);
+  const [listHasMore, setListHasMore] = useState(false);
+  const [listLastDoc, setListLastDoc] = useState<any | null>(null);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -72,6 +90,75 @@ const Dashboard: React.FC = () => {
       unsubscribeUser();
     };
   }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    let cancelled = false;
+
+    const fetchFirstPage = async () => {
+      setListLoadingInitial(true);
+      setListLoadingMore(false);
+      setListHasMore(false);
+      setListLastDoc(null);
+
+      try {
+        const q = query(
+          collection(db, 'transactions'),
+          where('userId', '==', currentUser.uid),
+          orderBy('date', 'desc'),
+          limit(PAGE_SIZE)
+        );
+
+        const snap: any = await getDocs(q);
+        if (cancelled) return;
+
+        const txs: Transaction[] = snap.docs.map((d: any) => ({ id: d.id, ...d.data() } as Transaction));
+        setListTransactions(txs);
+        setListLastDoc(snap.docs[snap.docs.length - 1] ?? null);
+        setListHasMore(snap.docs.length === PAGE_SIZE);
+      } catch (error) {
+        console.error('Error loading paginated transactions:', error);
+        if (!cancelled) {
+          setListTransactions([]);
+          setListHasMore(false);
+          setListLastDoc(null);
+        }
+      } finally {
+        if (!cancelled) setListLoadingInitial(false);
+      }
+    };
+
+    fetchFirstPage();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser]);
+
+  const handleLoadMore = async () => {
+    if (!currentUser || listLoadingMore || !listHasMore || !listLastDoc) return;
+    setListLoadingMore(true);
+    try {
+      const q = query(
+        collection(db, 'transactions'),
+        where('userId', '==', currentUser.uid),
+        orderBy('date', 'desc'),
+        startAfter(listLastDoc),
+        limit(PAGE_SIZE)
+      );
+
+      const snap: any = await getDocs(q);
+      const txs: Transaction[] = snap.docs.map((d: any) => ({ id: d.id, ...d.data() } as Transaction));
+
+      setListTransactions((prev) => [...prev, ...txs]);
+      setListLastDoc(snap.docs[snap.docs.length - 1] ?? listLastDoc);
+      setListHasMore(snap.docs.length === PAGE_SIZE);
+    } catch (error) {
+      console.error('Error loading more transactions:', error);
+    } finally {
+      setListLoadingMore(false);
+    }
+  };
   
   // Calculate Pie Data dynamically
   const calculatePieData = () => {
@@ -173,15 +260,15 @@ const Dashboard: React.FC = () => {
 
         {/* List Items */}
         <section className="flex flex-col space-y-2">
-            {loading ? (
+            {listLoadingInitial ? (
                 <p className="text-center text-zinc-500">Cargando movimientos...</p>
-            ) : transactions.length === 0 ? (
+            ) : listTransactions.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 opacity-50">
                     <span className="material-symbols-outlined text-4xl mb-2">receipt_long</span>
                     <p>No hay gastos recientes</p>
                 </div>
             ) : (
-                transactions.slice(0, 5).map((tx) => (
+                listTransactions.map((tx) => (
                     <div key={tx.id} className="flex items-center gap-4 bg-transparent min-h-[72px] py-2">
                     <div className="flex items-center gap-4 flex-1">
                     <div className="flex items-center justify-center rounded-lg shrink-0 size-12" style={{ backgroundColor: `${tx.color || '#38e07b'}33` }}> 
@@ -189,7 +276,7 @@ const Dashboard: React.FC = () => {
                     </div>
                     <div className="flex flex-col justify-center">
                         <p className="text-zinc-900 dark:text-white text-base font-medium line-clamp-1">{tx.category}</p>
-                        <p className="text-zinc-500 dark:text-zinc-400 text-sm font-normal line-clamp-2">{tx.subcategory || 'General'} • {tx.date}</p>
+                        <p className="text-zinc-500 dark:text-zinc-400 text-sm font-normal line-clamp-2">{tx.subcategory || 'General'} • {formatDateDDMMYYYY(tx.date)}</p>
                     </div>
                     </div>
                     <div className="shrink-0">
@@ -197,6 +284,16 @@ const Dashboard: React.FC = () => {
                     </div>
                 </div>
                 ))
+            )}
+
+            {!listLoadingInitial && listHasMore && (
+              <button
+                onClick={handleLoadMore}
+                disabled={listLoadingMore}
+                className="mt-2 h-12 w-full rounded-xl border border-zinc-200 bg-white text-zinc-900 shadow-sm disabled:opacity-50 dark:border-white/10 dark:bg-zinc-900/40 dark:text-white"
+              >
+                {listLoadingMore ? 'Cargando...' : 'Ver más'}
+              </button>
             )}
         </section>
       </main>
