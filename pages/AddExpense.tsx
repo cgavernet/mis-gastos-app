@@ -334,7 +334,9 @@ const AddExpense: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-2">
-                {categories.map((cat) => (
+                {[...categories]
+                  .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }))
+                  .map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => {
