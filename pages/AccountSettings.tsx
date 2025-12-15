@@ -73,8 +73,13 @@ const AccountSettings: React.FC = () => {
       if (name !== currentUser.displayName) {
         updateData.displayName = name;
       }
+      // Auth photoURL tiene límite: no seteamos dataURL/base64 (el avatar sale desde Firestore)
       if (photoURL !== currentUser.photoURL) {
-        updateData.photoURL = photoURL;
+        if (!photoURL) {
+          updateData.photoURL = '';
+        } else if (!photoURL.startsWith('data:') && photoURL.length < 1000) {
+          updateData.photoURL = photoURL;
+        }
       }
       if (Object.keys(updateData).length > 0) {
         await updateProfile(currentUser, updateData);
@@ -157,23 +162,19 @@ const AccountSettings: React.FC = () => {
       // Comprimir y convertir a base64
       const base64Image = await compressImage(file);
 
-      // Verificar tamaño (Firestore tiene límite de 1MB por campo, pero mantenemos más bajo para mejor rendimiento)
+      // Firestore tiene límite de 1MB por campo; mantenemos más bajo por rendimiento
       if (base64Image.length > 500000) {
         showToast('La imagen es demasiado grande. Intenta con una imagen más pequeña.', 'error');
-        setUploadingImage(false);
         return;
       }
 
       // Update state
       setPhotoURL(base64Image);
 
-      // Update Firestore only (Firebase Auth tiene límite de longitud para photoURL)
+      // Persistir en Firestore (NO en Auth: tiene límite de longitud)
       await updateDoc(doc(db, 'users', currentUser.uid), {
         photoURL: base64Image
       });
-      
-      // No actualizamos Auth profile porque tiene límite de longitud
-      // El avatar se carga desde Firestore
 
       showToast('Imagen actualizada exitosamente', 'success');
       setShowImageMenu(false);
@@ -195,10 +196,11 @@ const AccountSettings: React.FC = () => {
 
       // Update Firestore only
       await updateDoc(doc(db, 'users', currentUser.uid), {
-        photoURL: null
+        photoURL: null,
       });
       
-      // No actualizamos Auth profile
+      // Limpiar también Auth profile
+      await updateProfile(currentUser, { photoURL: '' });
 
       showToast('Imagen eliminada exitosamente', 'success');
       setShowImageMenu(false);
