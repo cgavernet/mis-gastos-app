@@ -1,9 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" rx="80" fill="#38e07b"/>
-  <path d="M256 120 L256 392 M120 256 L392 256" stroke="#122017" stroke-width="40" stroke-linecap="round"/>
-  <circle cx="256" cy="256" r="60" fill="#122017"/>
-  <path d="M200 200 L256 120 L312 200" stroke="#122017" stroke-width="30" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  <path d="M200 312 L256 392 L312 312" stroke="#122017" stroke-width="30" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Fondo -->
+  <rect width="512" height="512" rx="80" fill="#38e07b" />
+
+  <!-- Billetera -->
+  <g fill="none" stroke="#122017" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Cuerpo -->
+    <rect x="108" y="172" width="296" height="188" rx="32" stroke-width="28" />
+    <!-- Solapa -->
+    <path d="M140 196h232c18 0 32 14 32 32" stroke-width="22" opacity="0.9" />
+
+    <!-- Compartimento lateral -->
+    <path d="M316 236h76c18 0 32 14 32 32v48c0 18-14 32-32 32h-76c-18 0-32-14-32-32v-48c0-18 14-32 32-32z" stroke-width="22" />
+
+    <!-- Botón -->
+    <circle cx="344" cy="292" r="12" fill="#122017" stroke="none" />
+  </g>
 </svg>
 
 
