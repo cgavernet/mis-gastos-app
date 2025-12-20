@@ -15,6 +15,17 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [photoURL, setPhotoURL] = useState<string | null>(null);
 
+  const getCurrentMonthRangeISO = () => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth(); // 0-based
+    const pad2 = (n: number) => String(n).padStart(2, '0');
+    const startISO = `${y}-${pad2(m + 1)}-01`;
+    const lastDay = new Date(y, m + 1, 0).getDate();
+    const endISO = `${y}-${pad2(m + 1)}-${pad2(lastDay)}`;
+    return { startISO, endISO };
+  };
+
   const formatDateDDMMYYYY = (isoDate: string) => {
     // isoDate esperado: "YYYY-MM-DD"
     const d = new Date(`${isoDate}T00:00:00`);
@@ -36,12 +47,15 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     if (!currentUser) return;
 
-    // Listen to the last 5 transactions for the list
+    // Stats del mes actual (gastos) para total + gráfico
+    const { startISO, endISO } = getCurrentMonthRangeISO();
     const q = query(
-        collection(db, "transactions"),
-        where("userId", "==", currentUser.uid),
-        orderBy("timestamp", "desc"),
-        limit(50)
+      collection(db, 'transactions'),
+      where('userId', '==', currentUser.uid),
+      where('date', '>=', startISO),
+      where('date', '<=', endISO),
+      orderBy('date', 'desc'),
+      limit(500)
     );
 
     const unsubscribeTransactions = onSnapshot(q, (snapshot: any) => {
@@ -50,6 +64,8 @@ const Dashboard: React.FC = () => {
         
         snapshot.forEach((doc: any) => {
             const data = doc.data();
+            // Solo gastos (si no hay type, asumimos expense por compatibilidad)
+            if (data.type && data.type !== 'expense') return;
             total += Number(data.amount) || 0;
             txs.push({ id: doc.id, ...data } as Transaction);
         });

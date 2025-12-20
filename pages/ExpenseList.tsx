@@ -48,13 +48,22 @@ const ExpenseList: React.FC = () => {
   const [editShowPaymentDatePicker, setEditShowPaymentDatePicker] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
 
+  const parseISODateLocal = (isoDate: string) => {
+    // isoDate esperado: "YYYY-MM-DD" (evita corrimiento por timezone)
+    const parts = isoDate.split('-').map((p) => Number(p));
+    if (parts.length !== 3) return new Date(isoDate);
+    const [y, m, d] = parts;
+    if (!y || !m || !d) return new Date(isoDate);
+    return new Date(y, m - 1, d);
+  };
+
   useEffect(() => {
     if (!currentUser) return;
 
     const q = query(
       collection(db, 'transactions'),
       where('userId', '==', currentUser.uid),
-      orderBy('timestamp', 'desc')
+      orderBy('date', 'desc')
     );
 
     const unsubscribe = onSnapshot(q, (snapshot: any) => {
@@ -174,7 +183,7 @@ const ExpenseList: React.FC = () => {
     const otherTxs: { [key: string]: Transaction[] } = {};
 
     txs.forEach(tx => {
-      const txDate = new Date(tx.date);
+      const txDate = parseISODateLocal(tx.date);
       txDate.setHours(0, 0, 0, 0);
 
       if (txDate.getTime() === today.getTime()) {
@@ -202,9 +211,9 @@ const ExpenseList: React.FC = () => {
 
     // Add other dates
     Object.keys(otherTxs)
-      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
+      .sort((a, b) => parseISODateLocal(b).getTime() - parseISODateLocal(a).getTime())
       .forEach(dateKey => {
-        const date = new Date(dateKey);
+        const date = parseISODateLocal(dateKey);
         groups.push({
           label: date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }),
           transactions: otherTxs[dateKey]
@@ -397,19 +406,19 @@ const ExpenseList: React.FC = () => {
           <div className="mb-4 p-4 rounded-xl bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-none space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Rango de fechas</label>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <input
                   type="date"
                   value={filterDateFrom}
                   onChange={(e) => setFilterDateFrom(e.target.value)}
-                  className="flex-1 rounded-lg bg-slate-100 dark:bg-slate-700 h-14 px-3 text-sm text-slate-900 dark:text-white border-none focus:ring-2 focus:ring-primary focus:bg-slate-100 dark:focus:bg-slate-700 focus:text-slate-900 dark:focus:text-white"
+                  className="w-full min-w-0 rounded-lg bg-slate-100 dark:bg-slate-700 h-14 px-3 text-sm text-slate-900 dark:text-white border-none focus:ring-2 focus:ring-primary focus:bg-slate-100 dark:focus:bg-slate-700 focus:text-slate-900 dark:focus:text-white"
                   placeholder="Desde"
                 />
                 <input
                   type="date"
                   value={filterDateTo}
                   onChange={(e) => setFilterDateTo(e.target.value)}
-                  className="flex-1 rounded-lg bg-slate-100 dark:bg-slate-700 h-14 px-3 text-sm text-slate-900 dark:text-white border-none focus:ring-2 focus:ring-primary focus:bg-slate-100 dark:focus:bg-slate-700 focus:text-slate-900 dark:focus:text-white"
+                  className="w-full min-w-0 rounded-lg bg-slate-100 dark:bg-slate-700 h-14 px-3 text-sm text-slate-900 dark:text-white border-none focus:ring-2 focus:ring-primary focus:bg-slate-100 dark:focus:bg-slate-700 focus:text-slate-900 dark:focus:text-white"
                   placeholder="Hasta"
                 />
               </div>
