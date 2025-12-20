@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { db, collection, query, where, orderBy, onSnapshot, limit, doc, getDocs, startAfter } from '../firebase';
@@ -14,6 +14,9 @@ const Dashboard: React.FC = () => {
   const [totalAmount, setTotalAmount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [photoURL, setPhotoURL] = useState<string | null>(null);
+  const CHART_HEIGHT = 256;
+  const chartContainerRef = useRef<HTMLDivElement | null>(null);
+  const [chartReady, setChartReady] = useState(false);
 
   const getCurrentMonthRangeISO = () => {
     const now = new Date();
@@ -106,6 +109,25 @@ const Dashboard: React.FC = () => {
       unsubscribeUser();
     };
   }, [currentUser]);
+
+  // Evita warning de Recharts: solo montamos el chart cuando el contenedor tiene size > 0
+  useEffect(() => {
+    const el = chartContainerRef.current;
+    if (!el) return;
+
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      const ok = rect.width > 0 && rect.height > 0;
+      setChartReady(ok);
+    };
+
+    update();
+
+    const ro = new ResizeObserver(() => update());
+    ro.observe(el);
+
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -244,26 +266,32 @@ const Dashboard: React.FC = () => {
         {/* Chart */}
         <section className="flex flex-col gap-4 py-8">
           <h2 className="text-zinc-900 dark:text-white text-lg font-bold">Distribución por Categoría</h2>
-          <div className="relative flex h-64 items-center justify-center">
-             <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={displayPieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={80}
-                    outerRadius={100}
-                    paddingAngle={5}
-                    dataKey="value"
-                    stroke="none"
-                    cornerRadius={10}
-                  >
-                    {displayPieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                </PieChart>
-             </ResponsiveContainer>
+          <div
+            ref={chartContainerRef}
+            className="relative flex w-full min-w-0 items-center justify-center"
+            style={{ height: CHART_HEIGHT }}
+          >
+             {chartReady && (
+               <ResponsiveContainer width="100%" height={CHART_HEIGHT} minWidth={0} minHeight={0}>
+                  <PieChart>
+                    <Pie
+                      data={displayPieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={80}
+                      outerRadius={100}
+                      paddingAngle={5}
+                      dataKey="value"
+                      stroke="none"
+                      cornerRadius={10}
+                    >
+                      {displayPieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+               </ResponsiveContainer>
+             )}
             
             <div className="absolute flex flex-col items-center">
               <p className="text-zinc-500 dark:text-zinc-400 text-sm font-medium">Total</p>
