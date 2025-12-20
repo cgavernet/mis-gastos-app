@@ -19,7 +19,14 @@ export default defineConfig(({ mode }) => {
         react(),
         VitePWA({
           registerType: 'autoUpdate',
-          includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+          // `mask-icon.svg` no existe en /public actualmente
+          includeAssets: ['favicon.ico', 'favicon.png', 'apple-touch-icon.png', 'icon.svg'],
+          // Registramos el SW manualmente desde `index.tsx` para evitar issues de inyección
+          injectRegister: null,
+          // Para poder testear instalación PWA desde Android contra el dev server
+          devOptions: {
+            enabled: true
+          },
           manifest: {
             name: 'Mis Gastos App',
             short_name: 'Mis Gastos',
@@ -29,7 +36,8 @@ export default defineConfig(({ mode }) => {
             display: 'standalone',
             orientation: 'portrait',
             scope: '/',
-            start_url: '/',
+            // La app usa HashRouter
+            start_url: '/#/',
             icons: [
               {
                 src: 'pwa-192x192.png',
