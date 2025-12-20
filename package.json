@@ -12,6 +12,7 @@
     "version:major": "npm version major --no-git-tag-version"
   },
   "dependencies": {
+    "@vercel/analytics": "^1.6.1",
     "firebase": "^12.6.0",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",

@@ -1,5 +1,6 @@
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import AddExpense from './pages/AddExpense';
@@ -44,6 +45,7 @@ const App: React.FC = () => {
             </Routes>
           </Layout>
         </HashRouter>
+        <Analytics />
       </ToastProvider>
     </AuthProvider>
   );
