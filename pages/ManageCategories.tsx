@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db, collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -20,24 +20,310 @@ const ManageCategories: React.FC = () => {
   const [newCategoryColor, setNewCategoryColor] = useState('#38e07b');
   const [newSubcategoryName, setNewSubcategoryName] = useState('');
   const [showIconPicker, setShowIconPicker] = useState(false);
+  const [iconSearch, setIconSearch] = useState('');
+  const [iconTheme, setIconTheme] = useState('all');
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
 
-  // Lista de iconos disponibles
-  const availableIcons = [
-    'home', 'restaurant', 'directions_car', 'sports_esports', 'shopping_cart',
-    'local_gas_station', 'flight', 'hotel', 'fitness_center', 'local_hospital',
-    'school', 'work', 'movie', 'music_note', 'sports_soccer', 'pets',
-    'child_care', 'elderly', 'celebration', 'cake', 'local_cafe', 'fastfood',
-    'local_bar', 'beach_access', 'pool', 'spa', 'theater_comedy', 'book',
-    'laptop', 'phone_android', 'tv', 'headphones', 'camera_alt', 'videogame_asset',
-    'sports_basketball', 'sports_tennis', 'sports_volleyball', 'golf_course',
-    'directions_bike', 'directions_walk', 'directions_transit', 'train',
-    'local_pharmacy', 'local_grocery_store', 'local_mall', 'store',
-    'account_balance', 'savings', 'credit_card', 'wallet', 'payments',
-    'receipt', 'attach_money', 'monetization_on', 'trending_up', 'trending_down',
-    'category', 'label', 'tag', 'bookmark', 'star', 'favorite'
-  ];
+  const iconThemes = useMemo(
+    () => [
+      { id: 'all', label: 'Todos' },
+      { id: 'food', label: 'Comida' },
+      { id: 'transport', label: 'Transporte' },
+      { id: 'home', label: 'Hogar' },
+      { id: 'bills', label: 'Servicios' },
+      { id: 'health', label: 'Salud' },
+      { id: 'shopping', label: 'Compras' },
+      { id: 'finance', label: 'Finanzas' },
+      { id: 'travel', label: 'Viajes' },
+      { id: 'entertainment', label: 'Ocio' },
+      { id: 'tech', label: 'Tech' },
+      { id: 'work', label: 'Trabajo' },
+      { id: 'sports', label: 'Deportes' },
+      { id: 'education', label: 'Educación' },
+      { id: 'family', label: 'Familia' },
+      { id: 'beauty', label: 'Belleza' },
+      { id: 'pets', label: 'Mascotas' },
+      { id: 'other', label: 'Otros' },
+    ],
+    []
+  );
+
+  // Catálogo de íconos (Material Symbols)
+  const iconCatalog = useMemo(
+    () => ({
+      food: [
+        'restaurant',
+        'fastfood',
+        'local_cafe',
+        'local_bar',
+        'bakery_dining',
+        'ramen_dining',
+        'icecream',
+        'lunch_dining',
+        'dinner_dining',
+        'brunch_dining',
+        'liquor',
+        'wine_bar',
+        'coffee',
+        'local_pizza',
+        'set_meal',
+        'egg',
+        'nutrition',
+        'shopping_basket',
+        'local_grocery_store',
+      ],
+      transport: [
+        'directions_car',
+        'commute',
+        'local_taxi',
+        'two_wheeler',
+        'directions_bike',
+        'directions_walk',
+        'directions_transit',
+        'train',
+        'tram',
+        'subway',
+        'airport_shuttle',
+        'local_shipping',
+        'local_gas_station',
+        'car_rental',
+        'electric_car',
+        'ev_station',
+        'pedal_bike',
+        'motorcycle',
+        'sailing',
+      ],
+      home: [
+        'home',
+        'apartment',
+        'house',
+        'cottage',
+        'bed',
+        'chair',
+        'weekend',
+        'kitchen',
+        'microwave',
+        'local_laundry_service',
+        'cleaning_services',
+        'construction',
+        'handyman',
+        'hardware',
+        'build',
+        'plumbing',
+        'light',
+        'yard',
+        'grass',
+        'security',
+        'lock',
+      ],
+      bills: [
+        'receipt',
+        'request_quote',
+        'paid',
+        'payments',
+        'credit_card',
+        'account_balance_wallet',
+        'wallet',
+        'account_balance',
+        'savings',
+        'price_check',
+        'shopping_cart',
+        'sell',
+        'local_offer',
+        'bolt', // electricidad
+        'water_drop', // agua
+        'gas_meter',
+        'wifi',
+        'router',
+        'phone_in_talk',
+        'tv',
+      ],
+      health: [
+        'local_hospital',
+        'health_and_safety',
+        'medical_services',
+        'medication',
+        'vaccines',
+        'monitor_heart',
+        'bloodtype',
+        'dentistry',
+        'spa',
+        'self_care',
+        'psychology',
+        'fitness_center',
+        'sports_gymnastics',
+        'healing',
+        'emergency',
+        'local_pharmacy',
+      ],
+      shopping: [
+        'shopping_cart',
+        'shopping_bag',
+        'store',
+        'storefront',
+        'local_mall',
+        'local_offer',
+        'sell',
+        'checkroom',
+        'styler',
+        'diamond',
+        'watch',
+        'shelves',
+        'redeem',
+        'gift',
+      ],
+      finance: [
+        'account_balance',
+        'savings',
+        'payments',
+        'credit_card',
+        'wallet',
+        'account_balance_wallet',
+        'currency_exchange',
+        'attach_money',
+        'monetization_on',
+        'price_change',
+        'paid',
+        'receipt_long',
+        'calculate',
+        'assessment',
+        'trending_up',
+        'trending_down',
+      ],
+      travel: [
+        'flight',
+        'hotel',
+        'luggage',
+        'beach_access',
+        'map',
+        'explore',
+        'tour',
+        'hiking',
+        'camping',
+        'festival',
+        'attractions',
+      ],
+      entertainment: [
+        'movie',
+        'theaters',
+        'theater_comedy',
+        'music_note',
+        'headphones',
+        'sports_esports',
+        'videogame_asset',
+        'casino',
+        'celebration',
+        'nightlife',
+        'palette',
+        'brush',
+        'photo_camera',
+        'camera_alt',
+        'library_books',
+        'book',
+      ],
+      tech: [
+        'laptop',
+        'desktop_windows',
+        'smartphone',
+        'phone_android',
+        'tablet',
+        'devices',
+        'memory',
+        'router',
+        'wifi',
+        'cable',
+        'keyboard',
+        'mouse',
+        'headphones',
+        'developer_mode',
+        'cloud',
+        'storage',
+      ],
+      work: [
+        'work',
+        'badge',
+        'business_center',
+        'domain',
+        'groups',
+        'handshake',
+        'event',
+        'schedule',
+        'task',
+        'checklist',
+      ],
+      sports: [
+        'sports_soccer',
+        'sports_basketball',
+        'sports_tennis',
+        'sports_volleyball',
+        'sports_baseball',
+        'sports_martial_arts',
+        'sports',
+        'pool',
+        'golf_course',
+        'directions_run',
+      ],
+      education: [
+        'school',
+        'menu_book',
+        'book',
+        'science',
+        'calculate',
+        'language',
+        'psychology',
+        'history_edu',
+        'auto_stories',
+      ],
+      family: [
+        'child_care',
+        'family_restroom',
+        'pregnant_woman',
+        'elderly',
+        'groups',
+        'celebration',
+        'cake',
+        'volunteer_activism',
+      ],
+      beauty: [
+        'spa',
+        'self_care',
+        'styler',
+        'cut',
+        'sanitizer',
+        'face',
+      ],
+      pets: ['pets', 'cruelty_free', 'pest_control'],
+      other: [
+        'category',
+        'label',
+        'tag',
+        'bookmark',
+        'star',
+        'favorite',
+        'help',
+        'info',
+        'settings',
+      ],
+    }),
+    []
+  );
+
+  const availableIcons = useMemo(() => {
+    const all = Object.values(iconCatalog).flat();
+    return Array.from(new Set(all));
+  }, [iconCatalog]);
+
+  const filteredIcons = useMemo(() => {
+    const list =
+      iconTheme !== 'all' && iconCatalog[iconTheme as keyof typeof iconCatalog]
+        ? iconCatalog[iconTheme as keyof typeof iconCatalog]
+        : availableIcons;
+
+    const q = iconSearch.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter((i) => i.toLowerCase().includes(q));
+  }, [availableIcons, iconCatalog, iconSearch, iconTheme]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -331,8 +617,38 @@ const ManageCategories: React.FC = () => {
                   
                   {showIconPicker && (
                     <div className="absolute z-10 w-full mt-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-lg max-h-64 overflow-y-auto">
-                      <div className="p-3 grid grid-cols-6 gap-2">
-                        {availableIcons.map((icon) => (
+                      <div className="p-3 space-y-3">
+                        <input
+                          value={iconSearch}
+                          onChange={(e) => setIconSearch(e.target.value)}
+                          placeholder="Buscar icono… (ej: home, car, food)"
+                          className="w-full rounded-lg bg-slate-100 dark:bg-slate-700 h-11 px-3 text-sm text-slate-900 dark:text-white border-none focus:ring-2 focus:ring-primary"
+                        />
+
+                        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                          {iconThemes.map((t) => (
+                            <button
+                              key={t.id}
+                              type="button"
+                              onClick={() => setIconTheme(t.id)}
+                              className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold border ${
+                                iconTheme === t.id
+                                  ? 'bg-primary/15 text-primary border-primary/40'
+                                  : 'bg-transparent text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-primary/40'
+                              }`}
+                            >
+                              {t.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {filteredIcons.length === 0 ? (
+                          <div className="py-6 text-center text-sm text-slate-500 dark:text-slate-400">
+                            No hay resultados.
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-6 gap-2">
+                            {filteredIcons.map((icon) => (
                           <button
                             key={icon}
                             type="button"
@@ -354,7 +670,9 @@ const ManageCategories: React.FC = () => {
                               {icon}
                             </span>
                           </button>
-                        ))}
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
